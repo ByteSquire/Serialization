@@ -73,28 +73,34 @@ JsonConverter<object>, ISerializableTypeConverter {
       $"Failed to parse JSON for introspective type {typeToConvert}."
     );
 
+    var type = typeToConvert;
+    IdentifiableTypeMetadata? metadata;
     var typeId =
-      json[TypeDiscriminator]?.ToString() ?? throw new JsonException(
-        $"Type {typeToConvert} is missing the `{TypeDiscriminator}` type " +
-        "discriminator."
-      );
+      json[TypeDiscriminator]?.ToString();
+    if (typeId is not null) {
+      var version =
+        json[VersionDiscriminator]?.GetValue<int>();
 
-    var version =
-      json[VersionDiscriminator]?.GetValue<int>() ?? throw new JsonException(
-        $"Type {typeToConvert} is missing the `{VersionDiscriminator}` " +
-        "version discriminator."
-      );
-
-    if (
-      Graph.GetIdentifiableType(typeId, version) is not { } type ||
-      Graph.GetMetadata(type) is not IdentifiableTypeMetadata metadata
-    ) {
-      throw new JsonException(
-        $"The type `{typeToConvert}` has an unknown identifiable type: " +
-        $"id = {typeId}, version = {version}."
-      );
+      if (
+        (type = Graph.GetIdentifiableType(typeId, version)) is null ||
+        (metadata = Graph.GetMetadata(type) as IdentifiableTypeMetadata) is null
+      ) {
+        if (options.TypeInfoResolver?.GetTypeInfo(typeToConvert, options)?.PolymorphismOptions?.UnknownDerivedTypeHandling == JsonUnknownDerivedTypeHandling.FailSerialization) {
+          throw new JsonException(
+            $"The type `{typeToConvert}` has an unknown identifiable type: " +
+            $"id = {typeId}, version = {version}."
+          );
+        }
+        else {
+          return null;
+        }
+      }
     }
-
+    else {
+      if ((metadata = Graph.GetMetadata(type) as IdentifiableTypeMetadata) is null) {
+        throw new JsonException($"The type `{type}` is not identifiable, did you forget adding the Id attribute?");
+      }
+    }
     // Get all serializable properties, including those from base types.
     var properties = Graph.GetProperties(type);
 
@@ -346,7 +352,7 @@ JsonConverter<object>, ISerializableTypeConverter {
       .TryGetValue(typeof(SaveAttribute), out var saveAttributes) &&
     saveAttributes is { Length: > 0 } &&
     saveAttributes[0] is SaveAttribute saveAttribute
-      ? saveAttribute.Id
+      ? saveAttribute.Id ?? property.Name
       : null;
 
   internal static bool IsCollection(Type openType) =>

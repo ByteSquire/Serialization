@@ -9,8 +9,9 @@ using System;
 public class SaveAttribute : Attribute {
   /// <summary>
   /// Name to use for the property when serializing and deserializing.
+  /// Uses the property name when null.
   /// </summary>
-  public string Id { get; }
+  public string? Id { get; }
 
   /// <summary>
   /// Creates a new instance of the <see cref="SaveAttribute"/> class
@@ -19,7 +20,7 @@ public class SaveAttribute : Attribute {
   /// </summary>
   /// <param name="id">Name to use for the property when serializing and
   /// deserializing.</param>
-  public SaveAttribute(string id) {
+  public SaveAttribute(string? id = null) {
     Id = id;
   }
 }
